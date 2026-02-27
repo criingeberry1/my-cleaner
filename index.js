@@ -1,34 +1,38 @@
-import { registerSlashCommand } from "../../../slash-commands.js";
-import { saveChatDebounced, chat, renderChat } from "../../../../script.js";
+(function() {
+    const ExtensionName = "delstart-cleaner";
 
-// Регистрация команды /delstart
-registerSlashCommand(
-    "delstart",
-    (args) => {
-        const numToDelete = parseInt(args);
-        
+    function delstartCommand(args, value) {
+        const numToDelete = parseInt(value);
+        const context = SillyTavern.getContext();
+        const chat = context.chat;
+
         if (isNaN(numToDelete) || numToDelete <= 0) {
-            toastr.error("Укажи число: сколько сообщений удалить. Пример: /delstart 50");
-            return;
+            toastr.error("Укажи число сообщений. Пример: /delstart 10");
+            return "";
         }
 
-        // Проверяем, чтобы не удалить больше, чем есть (оставляя хотя бы 1 сообщение помимо приветственного)
-        if (numToDelete >= chat.length - 1) {
-            toastr.warning("Нельзя удалить всё! Оставь хотя бы одно сообщение.");
-            return;
+        if (chat.length <= 1) {
+            toastr.warning("Чат пуст или содержит только приветствие.");
+            return "";
         }
 
-        // Удаляем сообщения начиная с индекса 1 (индекс 0 — это описание персонажа/приветствие)
-        chat.splice(1, numToDelete);
+        // Ограничиваем, чтобы не удалить лишнего
+        const actualToDelete = Math.min(numToDelete, chat.length - 1);
 
-        // Сохраняем изменения в файл и перерисовываем чат
-        saveChatDebounced();
-        renderChat();
+        // Магия удаления (индекс 1 — это первое сообщение после приветствия)
+        chat.splice(1, actualToDelete);
 
-        toastr.success(`Удалено ${numToDelete} сообщений из начала чата.`);
-    },
-    [],
-    "Удаляет указанное количество сообщений с начала чата (сохраняя приветствие).",
-    true
-);
+        // Принудительное сохранение и рендер
+        context.saveChat();
+        context.renderChat();
 
+        toastr.success(`Удалено сообщений: ${actualToDelete}`);
+        return "";
+    }
+
+    jQuery(document).ready(() => {
+        const slashCommands = SillyTavern.getExtensionsContext().slashCommands;
+        slashCommands.add("delstart", delstartCommand, [], "Удаляет сообщения с начала чата", true);
+        console.log("DelStart Extension Loaded");
+    });
+})();
